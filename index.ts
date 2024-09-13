@@ -6,41 +6,57 @@ const ascii = <T extends string | number>(val: T) => (
     : String.fromCharCode(val)
 ) as Converted<T>;
 
-function fromAlphabase(alpha: string): number {
-  let val = 0, p = 1;
+const CHAR_A = ascii('A');
 
-  for (const digit of alpha.split('').reverse()) {
-    const digitVal = ascii(digit) - ascii('A') + 1;
-    val += p * digitVal;
-    p *= 26;
+function fromAlphabase(alpha: string): number {
+  let val = 0, pow = 1;
+
+  for (let d = alpha.length - 1; d >= 0; d--) {
+    if (!/[A-Z]/.test(alpha.charAt(d))) return NaN;
+
+    const digitVal = alpha.charCodeAt(d) - CHAR_A + 1;
+    val += pow * digitVal;
+    pow *= 26;
   }
 
   return val;
 }
 
 function toAlphabase(num: number): string {
-  const ps: number[] = [];
-  for (let p = 1; p === 1 || p < num; p *= 26) ps.push(p);
-  return ps
-    .toReversed()
-    .map((p, k) => {
-      const repr = ~~((num - ps.slice(0, -1-k).reduce((s, v) => s + v, 0)) / p);
-      num -= repr * p;
-      return ascii(ascii('A') + repr - 1);
-    })
-    .join('');
+  let len = 1, reserved = 1, pow = 1;
+  while (pow * 26 <= num - reserved) {
+    len += 1;
+    pow *= 26;
+    reserved += pow;
+  }
+
+  const digits = new Array<number>(len);
+  for (let i = 0; i < len; i++) {
+    reserved -= pow;
+    const repr = ((num - reserved) / pow) | 0;
+    num -= repr * pow;
+    digits[i] = CHAR_A + repr - 1;
+    pow /= 26;
+  }
+
+  return String.fromCharCode(...digits);
 }
+
+const alphabase = <T extends string | number>(val: T) => (
+  typeof val === "string"
+    ? fromAlphabase(val)
+    : toAlphabase(val)
+) as Converted<T>;
 
 const out = Bun.file("output.txt").writer();
 const writeln = (ln: any) => out.write(`${ln}\n`);
 
 for (let i = 1; i <= 13520; i++) {
-  let alpha = toAlphabase(i);
-  let num = fromAlphabase(alpha);
+  let alpha = alphabase(i);
+  let num = alphabase(alpha);
 
   if (i !== num) {
-    console.log(`broken for ${i}- alpha: ${alpha}, num: ${num}`);
-    break;
+    console.log(`broke: ${i} -> ${alpha} -> ${num}`);
   }
 
   writeln(alpha);
